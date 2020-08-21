@@ -1,1 +1,4 @@
-covid-19 exposure notification beacon monitor thingy
+COVID-19 exposure notification beacon monitor thingy, to visualize the presence
+of RPIs made by the GAEN protocol.
+
+Made for M5Stack Atom Matrix (ESP32 pico thing with 25 LEDs).
