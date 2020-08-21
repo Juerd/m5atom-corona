@@ -61,14 +61,14 @@ void display() {
     unsigned long now = millis();
 
     list<struct rpi_data> things;
-    for (auto thing: seen) {
-        if (now > wait && now <= thing.first_seen + wait) continue; // too new, skip
+    for (auto& thing: seen) {
+        if (now > wait && now <= thing.second.first_seen + wait) continue; // too new, skip
         things.push_back(thing.second);
     }
     things.sort([](rpi_data a, rpi_data b) { return a.first_seen < b.first_seen; });
 
     int ledindex = 0;
-    for (auto thing: things) {
+    for (auto& thing: things) {
         int rssi = thing.last_rssi;
         int hue = 170.0 * (float) (rssi - min_rssi) / (float) (max_rssi - min_rssi);
         //Serial.printf("r = %d, min = %d, max = %d\n", rssi, min_rssi, max_rssi);
