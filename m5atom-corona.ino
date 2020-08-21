@@ -3,11 +3,19 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include <FastLED.h>
 #include <unordered_map>
 #include <string>
+
 using namespace std;
-const int wait = 5 * 1000;  // ms
+const int wait = 10 * 1000;  // ms
 const int margin = 800;  // ms
+
+const int ledpin = 27;
+const int numleds = 25;
+
+int max_rssi = -50;
+int min_rssi = -100;
 
 struct rpi_data {
     unsigned long first_seen;
@@ -44,6 +52,26 @@ void cleanup() {
     }
 }
 
+CRGB leds[numleds];
+
+void display() {
+    for (int i = 0; i < numleds; i++) leds[i] = CRGB(0,0,0);
+
+    unsigned long now = millis();
+
+    int ledindex = 0;
+    for (auto rpi: seen) {
+        if (now > wait && now <= rpi.second.first_seen + wait) continue; // too new, skip
+        int rssi = rpi.second.last_rssi;
+        int hue = 170.0 * (float) (rssi - min_rssi) / (float) (max_rssi - min_rssi);
+        //Serial.printf("r = %d, min = %d, max = %d\n", rssi, min_rssi, max_rssi);
+        leds[ledindex] = CHSV(hue, 255, 255);
+        ledindex++;
+        if (ledindex >= numleds) break;
+    }
+    FastLED.show();
+}
+
 String hex(string bin) {
     String r = "";
     for (auto c: bin) r += Sprintf("%02x", c);
@@ -60,23 +88,27 @@ class dinges: public BLEAdvertisedDeviceCallbacks {
 
         string rpi = data.substr(0, 16);
         string aem = data.substr(16, 4);
+        int rssi = dev.getRSSI();
 
         Serial.printf(
             "RPI: %s, AEM: %s, RSSI: %d, ",
             hex(rpi).c_str(),
             hex(aem).c_str(),
-            dev.getRSSI()
+            rssi
         );
+
+        if (rssi < min_rssi) min_rssi = rssi;
+        if (rssi > max_rssi) max_rssi = rssi;
 
         auto& record = seen[rpi];
         if (!record.count) {
             record.first_seen = millis();
         }
         record.last_seen = millis();
-        record.last_rssi = dev.getRSSI();
+        record.last_rssi = rssi;
         record.count++;
 
-        Serial.printf("%d -> %d, #%d (r=%d)\n", record.first_seen, record.last_seen, record.count, seen.size());
+        Serial.printf("%d -> %d, #%d (n=%d)\n", record.first_seen, record.last_seen, record.count, seen.size());
 
         cleanup();
         display();
@@ -85,6 +117,9 @@ class dinges: public BLEAdvertisedDeviceCallbacks {
 
 void setup() {
     Serial.begin(115200);
+    FastLED.addLeds<WS2812B, ledpin, GRB>(leds, numleds);
+    FastLED.setBrightness(20);
+
     BLEDevice::init("");
     BLEScan* pBLEScan = BLEDevice::getScan();
     pBLEScan->setAdvertisedDeviceCallbacks(new dinges(), true);
