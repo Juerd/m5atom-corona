@@ -9,8 +9,8 @@
 #include <list>
 
 using namespace std;
-const int wait = 10 * 1000;  // ms
-const int margin = 800;  // ms
+const int margin = 1000;  // ms
+const int wait = 2 * margin;  // ms
 
 const int ledpin = 27;
 const int numleds = 25;
