@@ -19,6 +19,8 @@ const int numleds = 25;
 int max_rssi = -50;
 int min_rssi = -100;
 
+BLEScan* pBLEScan;
+
 struct rpi_data {
     unsigned long first_seen;
     unsigned long last_seen;
@@ -30,7 +32,6 @@ unordered_map<string, rpi_data> seen;
 
 void cleanup() {
     unsigned long now = millis();
-    if (now <= expire) return;
 
     unordered_map<string, rpi_data>::iterator it = seen.begin();
     while (it != seen.end()) {
@@ -125,7 +126,6 @@ class dinges: public BLEAdvertisedDeviceCallbacks {
 
         Serial.printf("%d -> %d, #%d (n=%d)\n", record.first_seen, record.last_seen, record.count, seen.size());
 
-        cleanup();
         display();
     }
 };
@@ -136,10 +136,14 @@ void setup() {
     FastLED.setBrightness(20);
 
     BLEDevice::init("");
-    BLEScan* pBLEScan = BLEDevice::getScan();
+    pBLEScan = BLEDevice::getScan();
     pBLEScan->setAdvertisedDeviceCallbacks(new dinges(), true);
     pBLEScan->setActiveScan(true);
-    BLEScanResults foundDevices = pBLEScan->start(0);
 }
 
-void loop() { }
+void loop() {
+    pBLEScan->start(10);
+
+    cleanup();
+    display();
+}
