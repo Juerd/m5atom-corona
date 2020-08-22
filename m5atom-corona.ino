@@ -11,6 +11,7 @@
 using namespace std;
 const int margin = 1000;  // ms
 const int wait = 2 * margin;  // ms
+const int expire = 30 * 1000;  // ms
 
 const int ledpin = 27;
 const int numleds = 25;
@@ -29,14 +30,18 @@ unordered_map<string, rpi_data> seen;
 
 void cleanup() {
     unsigned long now = millis();
-    if (now <= wait) return;
+    if (now <= expire) return;
 
     unordered_map<string, rpi_data>::iterator it = seen.begin();
     while (it != seen.end()) {
         auto rpi = it->first;
         auto data = it->second;
+        if (data.last_seen < now - expire) {
+            it = seen.erase(it);
+            continue;
+        }
         if (data.last_seen > now - wait) {
-            // not expired; ignore
+            // not stale; ignore
             it++;
             continue;
         }
@@ -46,10 +51,12 @@ void cleanup() {
                 // assume it's the same thing, and copy stuff
                 seen[maybe_same.first].count += data.count;
                 seen[maybe_same.first].first_seen = data.first_seen;
-                break;
+                it = seen.erase(it);
+                goto next;
             }
         }
-        it = seen.erase(it);
+        it++;
+        next: ;
     }
 }
 
@@ -71,8 +78,9 @@ void display() {
     for (auto& thing: things) {
         int rssi = thing.last_rssi;
         int hue = 170.0 * (float) (rssi - min_rssi) / (float) (max_rssi - min_rssi);
+        int value = 255 - (now - thing.last_seen) / 20;
         //Serial.printf("r = %d, min = %d, max = %d\n", rssi, min_rssi, max_rssi);
-        leds[ledindex] = CHSV(hue, 255, 255);
+        leds[ledindex] = CHSV(hue, 255, value > 0 ? value : 0);
         ledindex++;
         if (ledindex >= numleds) break;
     }
